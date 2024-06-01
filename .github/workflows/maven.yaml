@@ -110,3 +110,13 @@ jobs:
         with:
           artifact_path: ${{ github.workspace }}/Dockerfile
           format: spdx-json
+      - name: Attest for JAR
+        uses: actions/attest-sbom@v1
+        with:
+          subject-path: target/*.jar
+          sbom-path: 'USI_LAB_6_s21038-build.spdx.json'
+      - name: Attest for Dockerfile
+        uses: actions/attest-sbom@v1
+        with:
+          subject-path: '${{ github.workspace }}/Dockerfile'
+          sbom-path: 'USI_LAB_6_s21038-build-2.spdx.json'
