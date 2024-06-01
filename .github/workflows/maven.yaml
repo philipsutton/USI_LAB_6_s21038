@@ -123,11 +123,11 @@ jobs:
           path: target/*.jar
           retention-days: 10
       - name: Generate SBOM for JAR
-          uses: anchore/sbom-action@v2
-          with:
-            artifact_path: target/*.jar
-            format: spdx-json
-            output_file: sbom-jdk11.json
+        uses: anchore/sbom-action@v2
+        with:
+          artifact_path: target/*.jar
+          format: spdx-json
+          output_file: sbom-jdk11.json
   docker:
     runs-on: ubuntu-latest
     needs: [calculate-version, build]
