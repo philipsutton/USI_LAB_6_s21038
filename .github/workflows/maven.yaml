@@ -111,13 +111,25 @@ jobs:
           artifact_path: ${{ github.workspace }}/Dockerfile
           format: spdx-json
           output_file: sbom-docker.json
+      - name: Download sbom for JAR
+        uses: actions/download-artifact@v2
+        with:
+          name: USI_LAB_6_s21038-build.spdx.json
+          path: sbom-jar.spdx.json
+      - name: Download sbom for dockerfile
+        uses: actions/download-artifact@v2
+        with:
+          name: USI_LAB_6_s21038-build-2.spdx.json
+          path: sbom-docker.spdx.json
+
+
       - name: Attest for JAR
         uses: actions/attest-sbom@v1
         with:
           subject-path: target/*.jar
-          sbom-path: '${{ github.workspace }}/sbom-jdk11.json'
+          sbom-path: 'sbom-jar.spdx.json'
       - name: Attest for Dockerfile
         uses: actions/attest-sbom@v1
         with:
           subject-path: '${{ github.workspace }}/Dockerfile'
-          sbom-path: '${{ github.workspace }}/sbom-docker.json'
+          sbom-path: 'sbom-docker.spdx.json'
