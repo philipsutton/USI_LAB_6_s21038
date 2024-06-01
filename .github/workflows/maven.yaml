@@ -104,7 +104,7 @@ jobs:
           path: target/*.jar
           retention-days: 10
       - name: Generate SBOM for JAR
-  	uses: anchore/sbom-action@<version>
+  	uses: anchore/sbom-action@v0
   	with:
     	  artifact_path: target/*.jar
     	  format: spdx-json
