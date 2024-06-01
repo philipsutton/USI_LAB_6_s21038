@@ -1,6 +1,6 @@
 name: Java CI with Maven
 
-on: [push]
+on: [ push ]
 
 jobs:
   calculate-version:
@@ -13,16 +13,75 @@ jobs:
       - name: Calculate version
         shell: bash
         run: |
-          # Skrypt do obliczania nowej wersji
+          function calculate_version {
+            MAJOR_NUM=$(echo $2 | cut -d. -f1)
+            MINOR_NUM=$(echo $2 | cut -d. -f2)
+            PATCH_NUM=$(echo $2 | cut -d. -f3 | cut -d- -f1)
+            NEW_MAJOR_NUM=$MAJOR_NUM
+            NEW_MINOR_NUM=$MINOR_NUM
+            NEW_PATCH_NUM=$PATCH_NUM
+            if [ "${1,,}" = major ] ; then
+              let NEW_MAJOR_NUM=$MAJOR_NUM+1
+              NEW_MINOR_NUM=0
+              NEW_PATCH_NUM=0
+            elif [ "${1,,}" = minor ] ; then
+              let NEW_MINOR_NUM=$MINOR_NUM+1
+              NEW_PATCH_NUM=0
+            elif [ "${1,,}" = patch ] ; then
+              let NEW_PATCH_NUM=$PATCH_NUM+1
+            fi
+            echo $NEW_MAJOR_NUM.$NEW_MINOR_NUM.$NEW_PATCH_NUM
+          }
+          function calculate_build_version {
+            MAJOR_NUM=$(echo $1 | cut -d. -f1)
+            MINOR_NUM=$(echo $1 | cut -d. -f2)
+            PATCH_NUM=$(echo $1 | cut -d. -f3)
+            let NEW_MINOR_NUM=$MINOR_NUM+1
+            echo $MAJOR_NUM.$NEW_MINOR_NUM.$PATCH_NUM-build.$(git rev-parse --short HEAD)
+          }
+          set +e
+          PREV_VERSION=$(git tag | grep -E '.*[^hotfix]$' | tail -n 1)
+          set -e
+          if [ -z $PREV_VERSION ] ; then
+            PREV_VERSION=0.0.0
+          fi
+          export HOTFIX="$(echo $GITHUB_REF_NAME | sed -n "s/^hotfix\/\([0-9.]*\).*/\1/p")"
+          if [ $HOTFIX ] || [ "${RELEASE,,}" == patch ] ; then
+            export PREV_VERSION=$HOTFIX
+          fi
+          if [ "${RELEASE,,}" = major ] || [ "${RELEASE,,}" = minor ] || [ "${RELEASE,,}" = patch ] ; then
+            export RELEASE_VERSION=$(calculate_version $RELEASE $PREV_VERSION)
+          else
+            export RELEASE_VERSION=$(calculate_build_version $PREV_VERSION)
+          fi
+          echo $RELEASE_VERSION > version.txt
       - id: version-output-step
         run: echo "::set-output name=version-output::$(cat version.txt)"
-
   build:
     runs-on: ubuntu-latest
     needs: calculate-version
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
+      - name: Depcheck
+        uses: dependency-check/Dependency-Check_Action@main
+        env:
+          JAVA_HOME: /opt/jdk
+        id: Depcheck
+        continue-on-error: true
+        with:
+          project: 'test-app'
+          path: '.'
+          format: 'HTML'
+          out: 'reports'
+          args: >
+            --failOnCVSS 7
+            --enableRetired
+      - name: Upload Depcheck results
+        uses: actions/upload-artifact@v2
+        with:
+          name: Depcheck report
+          path: ${{github.workspace}}/reports
       - name: Set up JDK 16
         uses: actions/setup-java@v2
         with:
@@ -45,48 +104,9 @@ jobs:
         with:
           artifact_path: target/*.jar
           format: spdx-json
-          output_file: sbom-jdk16.json
-
-  generate-sbom:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Check out repository code
-        uses: actions/checkout@v4
-      - name: Generate attestation to SBOM
-        run: |
-      - name: Generate SBOM with attestation
+          output_file: sbom-jdk11.json
+      - name: Generate SBOM for Docker image
         uses: anchore/sbom-action@v0
         with:
-          artifact_path: sbom-jdk16.json
+          artifact_path: ${{ github.workspace }}/Dockerfile
           format: spdx-json
-          output_file: sbom-with-attestation.json
-
-  docker:
-    runs-on: ubuntu-latest
-    needs: [calculate-version, build, generate-sbom]
-    if: ${{ github.ref_type == 'branch' && github.ref_name == 'main' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        with:
-          driver-opts: network=host
-      - name: Download JAR file
-        uses: actions/download-artifact@v2
-        with:
-          name: app
-          path: target/
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Build and push to local registry
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: pbakpjatk/test-app:${{ needs.calculate-version.outputs.version }}
