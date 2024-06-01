@@ -122,11 +122,6 @@ jobs:
           name: app
           path: target/*.jar
           retention-days: 10
-      - uses: anchore/sbom-action@v0
-        with:
-          artifact_path: target/*.jar
-          format: spdx-json
-          output_file: sbom-jdk16.json
   docker:
     runs-on: ubuntu-latest
     needs: [calculate-version, build]
