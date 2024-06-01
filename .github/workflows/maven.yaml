@@ -104,11 +104,11 @@ jobs:
           path: target/*.jar
           retention-days: 10
       - name: Generate SBOM for JAR
-  	    uses: anchore/sbom-action@v0
-  	    with:
-    	    artifact_path: target/*.jar
-    	    format: spdx-json
-    	    output_file: sbom-jdk16.json
+        uses: anchore/sbom-action@v0
+        with:
+          artifact_path: target/*.jar
+          format: spdx-json
+          output_file: sbom-jdk16.json
 
   docker:
     runs-on: ubuntu-latest
@@ -143,10 +143,10 @@ jobs:
     needs: [ calculate-version, docker ]
     if: ${{ github.ref_type == 'branch' && github.ref_name == 'main' }}
     steps:
-    - name: Invoke 'Deploy' workflow
-      uses: benc-uk/workflow-dispatch@v1
-      with:
-        workflow: Deploy
-        repo: pbak-pjatk/test-deployment
-        token: ${{ secrets.CI_TOKEN }}
-        inputs: '{ "app": "test-app", "version": "${{ needs.calculate-version.outputs.version }}" }'
+      - name: Invoke 'Deploy' workflow
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: Deploy
+          repo: pbak-pjatk/test-deployment
+          token: ${{ secrets.CI_TOKEN }}
+          inputs: '{ "app": "test-app", "version": "${{ needs.calculate-version.outputs.version }}" }'
